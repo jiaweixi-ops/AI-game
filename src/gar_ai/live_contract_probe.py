@@ -262,6 +262,13 @@ def main(argv: list[str] | None = None) -> int:
     except FactorioBridgeError as exc:
         print(f"Factorio bridge unavailable: {exc}", file=sys.stderr)
         return 2
+    except OSError as exc:
+        print(
+            "Factorio bridge unavailable (socket error): "
+            f"{type(exc).__name__}: {exc}",
+            file=sys.stderr,
+        )
+        return 2
 
     _print_records(records)
     failed = [record for record in records if record.status != "pass"]

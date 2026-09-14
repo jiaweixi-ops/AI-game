@@ -168,13 +168,21 @@ class FactorioUdpBridge:
                                 str(response.get("error") or "Factorio bridge rejected request")
                             )
                         return response
-                except socket.timeout:
+                except (socket.timeout, ConnectionResetError, OSError) as exc:
+                    # On Windows an unreachable localhost UDP port answers with
+                    # ICMP port-unreachable, which surfaces as
+                    # ConnectionResetError (WinError 10054) on the next
+                    # recvfrom() instead of a timeout. Treat both as a normal,
+                    # retryable "no answer yet" condition so the bridge reports
+                    # an actionable error rather than leaking a raw socket
+                    # exception to the caller.
                     if attempt >= self.config.retries:
                         raise FactorioBridgeError(
-                            "Factorio UDP bridge timed out. Start Factorio with "
-                            f"--enable-lua-udp={self.config.factorio_port} and enable "
-                            "the gar-ai-bridge mod."
-                        )
+                            "Factorio UDP bridge did not answer. Start Factorio with "
+                            f"--enable-lua-udp={self.config.factorio_port}, enable the "
+                            "gar-ai-bridge mod, and load a save so the mod can "
+                            f"initialize. Last error: {type(exc).__name__}: {exc}"
+                        ) from exc
                 finally:
                     self._socket.settimeout(self.config.timeout_sec)
 

@@ -6,7 +6,11 @@ import unittest
 from pathlib import Path
 
 from gar_ai.factorio_launcher import install_mod
-from gar_ai.factorio_udp_bridge import FactorioUdpBridge, FactorioUdpConfig
+from gar_ai.factorio_udp_bridge import (
+    FactorioBridgeError,
+    FactorioUdpBridge,
+    FactorioUdpConfig,
+)
 from gar_ai.live_contract_probe import LiveContractProbe
 from gar_ai.contracts import ContractProbeRegistry
 
@@ -212,6 +216,54 @@ class LiveFactorioBridgeTests(unittest.TestCase):
             info = json.loads((destination / "info.json").read_text(encoding="utf-8"))
             self.assertEqual(info["factorio_version"], "2.1")
             self.assertTrue((destination / "control.lua").is_file())
+
+
+class UnreachableBridgeTests(unittest.TestCase):
+    """A silent Factorio side must never leak a raw socket exception.
+
+    On Windows, sending to a localhost UDP port with no listener triggers ICMP
+    port-unreachable, which surfaces as ConnectionResetError (WinError 10054) on
+    the next recvfrom() rather than a timeout. The bridge has to retry and then
+    report an actionable FactorioBridgeError.
+    """
+
+    class _ResetSocket:
+        def __init__(self):
+            self.sendto_calls = 0
+            self.timeouts = []
+
+        def bind(self, _address):
+            return None
+
+        def settimeout(self, value):
+            self.timeouts.append(value)
+
+        def sendto(self, _payload, _destination):
+            self.sendto_calls += 1
+            return len(_payload)
+
+        def recvfrom(self, _size):
+            raise ConnectionResetError(10054, "远程主机强迫关闭了一个现有的连接。")
+
+        def close(self):
+            return None
+
+    def test_connection_reset_is_retried_and_wrapped(self):
+        fake = self._ResetSocket()
+        bridge = FactorioUdpBridge(
+            FactorioUdpConfig(factorio_port=34198, timeout_sec=1.0, retries=2)
+        )
+        bridge._socket.close()
+        bridge._socket = fake
+
+        with self.assertRaises(FactorioBridgeError) as cm:
+            bridge.ping()
+
+        self.assertEqual(fake.sendto_calls, 2)
+        message = str(cm.exception)
+        self.assertIn("--enable-lua-udp=34198", message)
+        self.assertIn("load a save", message)
+        self.assertIn("ConnectionResetError", message)
 
 
 if __name__ == "__main__":
