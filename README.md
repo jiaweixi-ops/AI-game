@@ -47,6 +47,21 @@ The first live action set is:
 
 UDP retries reuse the same operation id and the Mod caches recent operation results, preventing duplicate side effects when a response packet is lost.
 
+### The bridge is silent while the game is not simulating
+
+`recv_udp` only dispatches packets while the game update loop runs. During a
+pause, a save, a map load, an open modal dialog (settings, ESC menu), or on the
+main menu the socket stays bound but **no packets are delivered**, and the
+controller sees plain timeouts. This is documented Factorio behaviour, not a
+controller bug. In-game diagnostics are available through `/gar-ai-diag`.
+
+Do not enable a second UDP-consuming mod alongside `gar-ai-bridge` — it competes
+for the same inbound datagrams.
+
+See [`docs/LIVE_BRIDGE_OPERATIONS.md`](docs/LIVE_BRIDGE_OPERATIONS.md) for the
+full state table, the required launch configuration, and how to read the
+counters.
+
 ## Fastest Windows bring-up
 
 From the repository root:
