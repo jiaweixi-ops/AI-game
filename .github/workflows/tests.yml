@@ -12,3 +12,9 @@ jobs:
           python-version: '3.11'
       - run: python -m pip install -e .
       - run: python -m unittest discover -s tests -v
+      - name: Install Lua 5.2 parser
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y lua5.2
+      - name: Parse Factorio bridge Lua
+        run: luac5.2 -p factorio-mod/gar-ai-bridge/control.lua
