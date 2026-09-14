@@ -1,0 +1,9 @@
+{
+  "name": "gar-ai-bridge",
+  "version": "0.1.0",
+  "title": "GAR AI Bridge",
+  "author": "jiaweixi-ops",
+  "factorio_version": "2.0",
+  "dependencies": ["base >= 2.0.0"],
+  "description": "Localhost UDP bridge exposing a minimal, versioned control surface for the GAR Factorio autonomous agent."
+}
